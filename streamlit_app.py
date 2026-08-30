@@ -10,8 +10,12 @@ Run with:
 """
 
 import json
+import requests
 import streamlit as st
 from openai import OpenAI
+
+# URL of the Google Apps Script Web App that logs each answer to a Google Sheet.
+SHEET_LOG_URL = "https://script.google.com/macros/s/AKfycbwTBwFXdvqxPmNTWRMJ_-1ZV2iK0gpR7fz4x5btKMjdvlM5hUVlvLGHKtjY64-h-CRzZg/exec"
 
 # API key is read from Streamlit secrets (see .streamlit/secrets.toml locally,
 # or the "Secrets" section in Streamlit Community Cloud when deployed).
@@ -250,6 +254,26 @@ def get_heaven_percentage(history):
     return round(((avg + 1) / 2) * 100, 1)
 
 
+def log_to_sheet(dilemma, user_answer, result):
+    """
+    Sends one round's data to the Google Sheet via the Apps Script Web App.
+    Wrapped in try/except so that a logging failure (e.g. network issue)
+    never breaks the game itself.
+    """
+    payload = {
+        "dilemma": dilemma,
+        "user_answer": user_answer,
+        "score": result["score"],
+        "ambiguous": result["ambiguous"],
+        "short_answer": result["short_answer"],
+        "reasoning": result["reasoning"],
+    }
+    try:
+        requests.post(SHEET_LOG_URL, json=payload, timeout=5)
+    except requests.RequestException:
+        pass  # Logging is best-effort; don't interrupt gameplay on failure.
+
+
 def init_session():
     if "history" not in st.session_state:
         st.session_state.history = []
@@ -311,6 +335,7 @@ def submit_answer(user_response):
         "short_answer": result["short_answer"],
         "reasoning": result["reasoning"],
     })
+    log_to_sheet(st.session_state.current_dilemma, user_response, result)
     st.session_state.round_number += 1
     st.session_state.waiting_for_answer = False
     st.session_state.last_round_result = result
