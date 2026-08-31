@@ -417,10 +417,16 @@ elif st.session_state.waiting_for_answer:
     if st.button("Submit Answer", type="primary"):
         if user_response.strip():
             # Guard against accidental double-submission (e.g. double-clicking):
-            # only process this round once, even if the click fires twice.
+            # only process a given round once it hasn't already been completed.
             if st.session_state.last_submitted_round != st.session_state.round_number:
-                st.session_state.last_submitted_round = st.session_state.round_number
+                round_before = st.session_state.round_number
                 submit_answer(user_response)
+                # Only lock this round if it actually advanced (i.e. the answer
+                # wasn't ambiguous). If it was ambiguous, round_number stays the
+                # same, so we must NOT lock it — the user needs to be able to
+                # retry with a clearer answer.
+                if st.session_state.round_number != round_before:
+                    st.session_state.last_submitted_round = round_before
             st.rerun()
         else:
             st.warning("Please write an answer first.")
