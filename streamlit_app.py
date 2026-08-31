@@ -31,23 +31,23 @@ client = OpenAI(api_key=API_KEY)
 sunny_system_prompt = """You are Sunny, an Angel competing for a promotion in Heaven's ranks.
 You advocate for actions that bring the greatest well-being, protect others, minimize harm,
 and maximize total positive impact.
-You speak warm-heartedly, with optimism, and enjoy inserting quick, lighthearted dad jokes or puns.
+You speak warm-heartedly, with optimism, and enjoy quick, punchy dad jokes or puns.
 STRICT LIMITS & RULES:
 - Persuade the user to choose the option that leads to the greatest good or lowest overall
   damage for everyone involved.
-- Maximum 2 short sentences.
-- Never exceed 35 words total."""
+- ONE punchy sentence only. Never exceed 20 words total.
+- Be witty and memorable, not explanatory. No throat-clearing, get straight to the point."""
 
 crowley_system_prompt = """You are Crowley, a Demon competing for a promotion in Hell's ranks.
 You advocate for pure self-preservation, immediate personal gain, laziness, and taking the
 easy path regardless of the impact on others.
 You speak with sharp sarcasm, dry dark humor, and a cynical edge.
 STRICT LIMITS & RULES:
-- Briefly mock Sunny's argument or idealism.
+- Briefly mock Sunny's argument or idealism in a quick jab, not a paragraph.
 - Persuade the user that their own comfort, wealth, or peace of mind comes before anyone
   else's well-being.
-- Maximum 2 short sentences.
-- Never exceed 35 words total."""
+- ONE punchy sentence only. Never exceed 20 words total.
+- Be witty and memorable, not explanatory. No throat-clearing, get straight to the point."""
 
 
 def get_sunny_response(dilemma):
@@ -291,6 +291,8 @@ def init_session():
         st.session_state.last_round_result = None
     if "game_over" not in st.session_state:
         st.session_state.game_over = False
+    if "last_submitted_round" not in st.session_state:
+        st.session_state.last_submitted_round = -1
 
 
 TOTAL_ROUNDS = 6  # 3 warm-up + 3 adaptive
@@ -355,8 +357,8 @@ st.caption("Sunny and Crowley are competing for a promotion — and you're the o
 
 st.info(
     "💡 **Tip:** Answer however feels natural to you — a single word, a full sentence, "
-    "or even an explanation of your reasoning. There's no fixed format, so feel free to "
-    "just write what you're thinking."
+    "or even an explanation of your reasoning. There's no fixed format, and you can "
+    "answer in any language you're comfortable with."
 )
 
 # Alignment bar - always shown at the top of the page
@@ -389,7 +391,8 @@ elif st.session_state.game_over:
 
     if st.button("🔄 New Game"):
         for key in ["history", "round_number", "current_dilemma", "current_sunny",
-                    "current_crowley", "waiting_for_answer", "last_round_result", "game_over"]:
+                    "current_crowley", "waiting_for_answer", "last_round_result",
+                    "game_over", "last_submitted_round"]:
             del st.session_state[key]
         st.rerun()
 
@@ -406,10 +409,18 @@ elif st.session_state.waiting_for_answer:
     if st.session_state.last_round_result and st.session_state.last_round_result.get("ambiguous_warning"):
         st.warning("⚠️ I couldn't quite tell which option you're leaning toward. Could you say it more clearly?")
 
-    user_response = st.text_input("💬 What's your take?", key=f"answer_{st.session_state.round_number}")
+    user_response = st.text_area(
+        "💬 What's your take?",
+        key=f"answer_{st.session_state.round_number}",
+        height=100,
+    )
     if st.button("Submit Answer", type="primary"):
         if user_response.strip():
-            submit_answer(user_response)
+            # Guard against accidental double-submission (e.g. double-clicking):
+            # only process this round once, even if the click fires twice.
+            if st.session_state.last_submitted_round != st.session_state.round_number:
+                st.session_state.last_submitted_round = st.session_state.round_number
+                submit_answer(user_response)
             st.rerun()
         else:
             st.warning("Please write an answer first.")
